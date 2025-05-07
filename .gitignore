@@ -1,0 +1,7 @@
+# Gitignore settings for ESPHome
+/.esphome/
+/secrets.yaml
+**/__pycache__
+.DS_Store
+private
+private-*
