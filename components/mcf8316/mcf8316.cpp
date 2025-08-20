@@ -77,7 +77,7 @@ Config MCF8316Component::make_default_config() const {
   config.set(BRAKE_INPUT, BrakeInput::OVERRIDE_OFF); // set brake over I2C
   config.set(DIR_INPUT, DirInput::OVERRIDE_CLOCKWISE); // set direction over I2C
   config.set(DEV_MODE, uint8_t(1u)); // enable sleep when wake pin is low (if set to 0, will go into standby instead)
-  config.set(SLEEP_ENTRY_TIME, uint8_t(0)); // Sleep entry time: sleep when speed pin low for 50 us
+  config.set(SLEEP_ENTRY_TIME, uint8_t(2)); // Sleep entry time: sleep when speed pin low for 20 ms
   if (this->watchdog_) {
     config.set(EXT_WDT_EN, true); // enable watchdog timer
     config.set(EXT_WDT_CONFIG, uint8_t(1u)); // 2 second timeout over I2C
@@ -334,7 +334,6 @@ MCF8316Component::ErrorCode MCF8316Component::read_config() {
     }
   }
   this->update_wake_state_for_pin_config_();
-  //log_config(this->config_shadow_);
   return ErrorCode::NO_ERROR;
 }
 
@@ -342,19 +341,13 @@ MCF8316Component::ErrorCode MCF8316Component::write_config(Config config) {
   RETURN_ERROR_IF_FAILED_OR_ASLEEP;
 
   ESP_LOGI(TAG, "Writing configuration shadow registers");
-  log_config(config);
   for (size_t i = 0; i < Config::LENGTH; i++) {
-    if (config.register_values[i].value != this->config_shadow_.register_values[i].value) {
-      ErrorCode error = this->write_register_(Config::index_to_register(i),
-          config.register_values[i].value);
-      if (error) {
-        ESP_LOGE(TAG, "Failed to write configuration shadow registers: %s", error_name(error));
-        return error;
-      }
-      this->config_shadow_.register_values[i].value = config.register_values[i].value;
+    ErrorCode error = this->modify_config_register_with_workarounds_(Config::index_to_register(i), config.register_values[i]);
+    if (error) {
+      ESP_LOGE(TAG, "Failed to write configuration shadow registers: %s", error_name(error));
+      return error;
     }
   }
-  this->update_wake_state_for_pin_config_();
   return ErrorCode::NO_ERROR;
 }
 
@@ -396,6 +389,7 @@ MCF8316Component::ErrorCode MCF8316Component::save_config_to_eeprom() {
   }
 
   ESP_LOGI(TAG, "Saving configuration shadow registers to the EEPROM");
+
   RegisterValue<Register::ALGO_CTRL1> algo_ctrl1;
   algo_ctrl1.set(EEPROM_WRT, true);
   algo_ctrl1.set(EEPROM_WRITE_ACCESS_KEY, uint8_t(0xa5));
@@ -509,6 +503,43 @@ MCF8316Component::ErrorCode MCF8316Component::read_vm_voltage(float* out_voltage
     return error;
   }
   *out_voltage_in_volts = float(vm_voltage.value) * 60 / (1 << 27);
+  return ErrorCode::NO_ERROR;
+}
+
+MCF8316Component::ErrorCode MCF8316Component::modify_config_register_with_workarounds_(
+    Register reg, RegisterValue_ register_value) {
+  RegisterValue_& shadow_value = this->config_shadow_.register_values[Config::register_to_index(reg)];
+  if (register_value.equals_ignoring_config_register_parity(shadow_value)) {
+    // Store the updated parity bit so that the config shadow reflects what the caller last wrote
+    // even though the device ignores the bit.
+    shadow_value.value = register_value.value;
+    return ErrorCode::NO_ERROR;
+  }
+  MCF8316Component::ErrorCode error;
+  if (reg == Register::DEVICE_CONFIG2) {
+    // The watchdog timer must be disabled before it is reconfigured, according to the datasheet
+    auto shadow_value_typed = static_cast<const RegisterValue<Register::DEVICE_CONFIG2>&>(shadow_value);
+    auto register_value_typed = static_cast<const RegisterValue<Register::DEVICE_CONFIG2>&>(register_value);
+    if (register_value_typed.get(EXT_WDT_EN) && shadow_value_typed.get(EXT_WDT_EN) &&
+        (register_value_typed.get(EXT_WDT_CONFIG) != shadow_value_typed.get(EXT_WDT_CONFIG) ||
+            register_value_typed.get(EXT_WDT_INPUT_MODE) != shadow_value_typed.get(EXT_WDT_INPUT_MODE) ||
+            register_value_typed.get(EXT_WDT_FAULT_MODE) != shadow_value_typed.get(EXT_WDT_FAULT_MODE))) {
+      RegisterValue<Register::DEVICE_CONFIG2> modified_value_typed = shadow_value_typed;
+      modified_value_typed.set(EXT_WDT_EN, false);
+      ESP_LOGD(TAG, "Applying workaround for modification of watchdog configuration");
+      if ((error = this->write_register_(reg, discard_config_register_parity(modified_value_typed.value)))) {
+        return error;
+      }
+      shadow_value.value = modified_value_typed.value;
+    }
+  }
+  if ((error = this->write_register_(reg, discard_config_register_parity(register_value.value)))) {
+    return error;
+  }
+  shadow_value.value = register_value.value;
+  if (reg == Register::PIN_CONFIG) {
+    this->update_wake_state_for_pin_config_();
+  }
   return ErrorCode::NO_ERROR;
 }
 

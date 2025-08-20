@@ -720,9 +720,12 @@ enum ControllerFaultStatus : uint32_t {
   CONTROLLER_WWDT_FAULT_STATUS = 1u << 1,
 };
 
+// Format a bit-packed fault status value to a human-readable string.
+std::string format_gate_driver_fault_status(GateDriverFaultStatus value);
+std::string format_controller_fault_status(ControllerFaultStatus value);
 
 // Discards the parity bit from a config register.
-constexpr uint32_t discard_config_register_parity(uint32_t value) { return value & 0x7ffffff; }
+constexpr uint32_t discard_config_register_parity(uint32_t value) { return value & 0x7fffffffu; }
 
 // Holds the value of a specific register and provides type-safe access to its fields.
 struct RegisterValue_ {
@@ -844,10 +847,6 @@ constexpr float convert_speed_in_rotor_hz_to_electrical_hz(float speed_in_rotor_
 
 // Write the configuration to the log.
 void log_config(const Config& config);
-
-// Format a bit-packed fault status value to a human-readable string.
-std::string format_gate_driver_fault_status(GateDriverFaultStatus value);
-std::string format_controller_fault_status(ControllerFaultStatus value);
 
 }  // namespace mcf8316
 }  // namespace esphome

@@ -161,19 +161,7 @@ class MCF8316Component : public Component {
   // Modifies and writes a single config register and updates `config_shadow`.
   template <Register reg, typename Mutator>
   ErrorCode modify_config_register(Mutator mutator) {
-    RegisterValue<reg> old_value = this->config_shadow_.at<reg>();
-    RegisterValue<reg> new_value = mutator(old_value);
-    if (new_value.equals_ignoring_config_register_parity(old_value)) {
-      return ErrorCode::NO_ERROR;
-    }
-    ErrorCode error = this->write_register_(reg, new_value.value);
-    if (!error) {
-      this->config_shadow_.at<reg>() = new_value;
-      if (reg == Register::PIN_CONFIG) {
-        this->update_wake_state_for_pin_config_();
-      }
-    }
-    return error;
+    return this->modify_config_register_with_workarounds_(reg, mutator(this->config_shadow_.at<reg>()));
   }
 
  protected:
@@ -189,6 +177,8 @@ class MCF8316Component : public Component {
   bool is_wake_pin_configured_() const;
   void update_wake_state_for_pin_config_();
   void reset_with_sleep_cycle_();
+
+  ErrorCode modify_config_register_with_workarounds_(Register reg, RegisterValue_ register_value);
 
   ErrorCode read_register_(Register reg, uint32_t* out_value, bool silence_logs = false);
   ErrorCode write_register_(Register reg, uint32_t value, bool silence_logs = false);
