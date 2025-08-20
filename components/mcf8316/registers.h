@@ -672,12 +672,66 @@ bool is_mpet_running(AlgorithmState state);
 const char* algorithm_state_name(AlgorithmState state);
 constexpr auto ALGORITHM_STATE = Field<Register::ALGORITHM_STATE, 0, 16, AlgorithmState>();
 
+// GATE_DRIVER_FAULT_STATUS
+enum GateDriverFaultStatus : uint32_t {
+  GATE_DRIVER_FAULT = 1u << 31,
+  GATE_DRIVER_OCP = 1u << 28,
+  GATE_DRIVER_OVP = 1u << 26,
+  GATE_DRIVER_OTW = 1u << 23,
+  GATE_DRIVER_OTS = 1u << 22,
+  GATE_DRIVER_OCP_HC = 1u << 21,
+  GATE_DRIVER_OCP_LC = 1u << 20,
+  GATE_DRIVER_OCP_HB = 1u << 19,
+  GATE_DRIVER_OCP_LB = 1u << 18,
+  GATE_DRIVER_OCP_HA = 1u << 17,
+  GATE_DRIVER_OCP_LA = 1u << 16,
+  GATE_DRIVER_BUCK_OCP = 1u << 13,
+  GATE_DRIVER_BUCK_UV = 1u << 12,
+  GATE_DRIVER_VCP_UV = 1u << 11,
+};
+
+// CONTROLLER_FAULT_STATUS
+enum ControllerFaultStatus : uint32_t {
+  CONTROLLER_FAULT = 1u << 31,
+  CONTROLLER_IPD_FREQ_FAULT = 1u << 29,
+  CONTROLLER_IPD_T1_FAULT = 1u << 28,
+  CONTROLLER_IPD_T2_FAULT = 1u << 27,
+  CONTROLLER_MPET_IPD_FAULT = 1u << 25,
+  CONTROLLER_MPET_BEMF_FAULT = 1u << 24,
+  CONTROLLER_ABN_SPEED = 1u << 23,
+  CONTROLLER_ABN_BEMF = 1u << 22,
+  CONTROLLER_NO_MTR = 1u << 21,
+  CONTROLLER_MTR_LCK = 1u << 20,
+  CONTROLLER_LOCK_ILIMIT = 1u << 19,
+  CONTROLLER_HW_LOCK_ILIMIT = 1u << 18,
+  CONTROLLER_MTR_UNDER_VOLTAGE = 1u << 17,
+  CONTROLLER_MTR_OVER_VOLTAGE = 1u << 16,
+  CONTROLLER_SPEED_LOOP_SATURATION = 1u << 15,
+  CONTROLLER_CURRENT_LOOP_SATURATION = 1u << 14,
+  CONTROLLER_MAX_SPEED_SATURATION = 1u << 13,
+  CONTROLLER_BUS_POWER_LIMIT_SATURATION = 1u << 12,
+  CONTROLLER_EEPROM_WRITE_LOCK_SET = 1u << 11,
+  CONTROLLER_EEPROM_READ_LOCK_SET = 1u << 10,
+  CONTROLLER_I2C_CRC_FAULT_STATUS = 1u << 6,
+  CONTROLLER_EEPROM_ERR_STATUS = 1u << 5,
+  CONTROLLER_BOOT_STL_FAULT = 1u << 4,
+  CONTROLLER_WATCHDOG_FAULT = 1u << 3,
+  CONTROLLER_CPU_RESET_FAULT_STATUS = 1u << 2,
+  CONTROLLER_WWDT_FAULT_STATUS = 1u << 1,
+};
+
+
+// Discards the parity bit from a config register.
+constexpr uint32_t discard_config_register_parity(uint32_t value) { return value & 0x7ffffff; }
+
 // Holds the value of a specific register and provides type-safe access to its fields.
 struct RegisterValue_ {
   uint32_t value{};
 
-  bool operator==(const RegisterValue_&) const = default;
-  bool operator!=(const RegisterValue_&) const = default;
+  // Compares two config registers ignoring the parity bit.
+  bool equals_ignoring_config_register_parity(const RegisterValue_& other) const {
+    return discard_config_register_parity(this->value) == discard_config_register_parity(other.value);
+  }
 };
 template <Register reg>
 struct RegisterValue final : public RegisterValue_ {
@@ -741,13 +795,10 @@ struct Config final {
   // Returns true if some motor parameters have not been explicitly configured.
   // The MCF8316D will automatically run the MPET tool when a speed command is issued
   // but it's more robust to set everything up-front.
-  bool needs_mpet_for_speed_loop() const {
-    return get(MOTOR_RES) == 0 || get(MOTOR_IND) == 0 || get(MOTOR_BEMF_CONST) == 0 ||
-        get(SPD_LOOP_KP) == 0 || get(SPD_LOOP_KI) == 0;
-  }
+  bool needs_mpet_for_speed_loop() const;
 
-  bool operator==(const Config&) const = default;
-  bool operator!=(const Config&) const = default;
+  // Compares all config registers and ignores the parity bit.
+  bool equals_ignoring_config_register_parity(const Config& other) const;
 };
 
 // Maximum power is expressed as a fraction of 100 W.
@@ -795,8 +846,8 @@ constexpr float convert_speed_in_rotor_hz_to_electrical_hz(float speed_in_rotor_
 void log_config(const Config& config);
 
 // Format a bit-packed fault status value to a human-readable string.
-std::string format_gate_driver_fault_status(uint32_t value);
-std::string format_controller_fault_status(uint32_t value);
+std::string format_gate_driver_fault_status(GateDriverFaultStatus value);
+std::string format_controller_fault_status(ControllerFaultStatus value);
 
 }  // namespace mcf8316
 }  // namespace esphome

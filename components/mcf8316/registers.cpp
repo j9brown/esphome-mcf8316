@@ -28,6 +28,20 @@ void log_config(const Config& config) {
   MCF8316_FOR_EACH_CONFIG_REGISTER(MCF8316_LOG_CONFIG_REGISTER)
 }
 
+bool Config::needs_mpet_for_speed_loop() const {
+  return get(MOTOR_RES) == 0 || get(MOTOR_IND) == 0 || get(MOTOR_BEMF_CONST) == 0 ||
+      get(SPD_LOOP_KP) == 0 || get(SPD_LOOP_KI) == 0;
+}
+
+bool Config::equals_ignoring_config_register_parity(const Config& other) const {
+  for (size_t i = 0; i < Config::LENGTH; i++) {
+    if (!this->register_values[i].equals_ignoring_config_register_parity(other.register_values[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool is_mpet_running(AlgorithmState state) {
   return unsigned(state) >= unsigned(AlgorithmState::MOTOR_MPET_MOTOR_STOP_CHECK)
       && unsigned(state) < unsigned(AlgorithmState::MOTOR_MPET_DONE);
@@ -89,11 +103,11 @@ std::string format_fault_bits(uint32_t value, const char* names[32]) {
   return result;
 }
 
-std::string format_gate_driver_fault_status(uint32_t value) {
+std::string format_gate_driver_fault_status(GateDriverFaultStatus value) {
   return format_fault_bits(value, GATE_DRIVER_FAULT_BITS);
 }
 
-std::string format_controller_fault_status(uint32_t value) {
+std::string format_controller_fault_status(ControllerFaultStatus value) {
   return format_fault_bits(value, CONTROLLER_FAULT_BITS);
 }
 

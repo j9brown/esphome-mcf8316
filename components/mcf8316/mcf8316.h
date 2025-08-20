@@ -28,8 +28,8 @@ class MCF8316Component : public Component {
   static const char* error_name(ErrorCode code);
 
   struct FaultStatus final {
-    uint32_t gate_driver;
-    uint32_t controller;
+    GateDriverFaultStatus gate_driver;
+    ControllerFaultStatus controller;
 
     bool is_faulted() const { return gate_driver != 0 || controller != 0; }
     bool is_cleared() const { return !is_faulted(); }
@@ -163,7 +163,7 @@ class MCF8316Component : public Component {
   ErrorCode modify_config_register(Mutator mutator) {
     RegisterValue<reg> old_value = this->config_shadow_.at<reg>();
     RegisterValue<reg> new_value = mutator(old_value);
-    if (old_value == new_value) {
+    if (new_value.equals_ignoring_config_register_parity(old_value)) {
       return ErrorCode::NO_ERROR;
     }
     ErrorCode error = this->write_register_(reg, new_value.value);

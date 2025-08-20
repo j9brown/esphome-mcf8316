@@ -151,8 +151,9 @@ void MCF8316Component::update_wake_state_for_pin_config_() {
 }
 
 void MCF8316Component::tickle_watchdog_() {
-  constexpr uint32_t TICKLE_INTERVAL = 500; // timeout is 2000 ms
-  if (millis() - this->last_tickle_time_ < TICKLE_INTERVAL) {
+  constexpr uint32_t TICKLE_INTERVAL = 250; // timeout is 2000 ms
+  uint32_t now = millis();
+  if (now - this->last_tickle_time_ < TICKLE_INTERVAL) {
     return;
   }
 
@@ -175,7 +176,7 @@ void MCF8316Component::tickle_watchdog_() {
       this->update_warning_();
     }
   }
-  this->last_tickle_time_ = millis();
+  this->last_tickle_time_ = now;
 }
 
 void MCF8316Component::check_fault_() {
@@ -186,8 +187,8 @@ void MCF8316Component::check_fault_() {
     this->fault_status_ = {};
   } else {
     FaultStatus fault_status{};
-    if (this->read_register_(Register::GATE_DRIVER_FAULT_STATUS, &fault_status.gate_driver)
-        || this->read_register_(Register::CONTROLLER_FAULT_STATUS, &fault_status.controller)
+    if (this->read_register_(Register::GATE_DRIVER_FAULT_STATUS, reinterpret_cast<uint32_t*>(&fault_status.gate_driver))
+        || this->read_register_(Register::CONTROLLER_FAULT_STATUS, reinterpret_cast<uint32_t*>(&fault_status.controller))
         || fault_status == this->fault_status_) {
       return;
     }
@@ -389,7 +390,7 @@ MCF8316Component::ErrorCode MCF8316Component::load_config_from_eeprom() {
 MCF8316Component::ErrorCode MCF8316Component::save_config_to_eeprom() {
   RETURN_ERROR_IF_FAILED_OR_ASLEEP;
 
-  if (this->config_shadow_ == this->config_eeprom_) {
+  if (this->config_shadow_.equals_ignoring_config_register_parity(this->config_eeprom_)) {
     ESP_LOGD(TAG, "Not saving configuration shadow registers to the EEPROM because they have not changed");
     return ErrorCode::NO_ERROR;
   }
