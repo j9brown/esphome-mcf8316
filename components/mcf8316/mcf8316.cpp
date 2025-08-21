@@ -553,7 +553,11 @@ MCF8316Component::ErrorCode MCF8316Component::read_register_(Register reg, uint3
 
   uint32_t ctrl = CTRL_OP_READ | CTRL_CRC_EN | CTRL_DLEN_32 | uint32_t(reg);
   uint8_t header[] = { uint8_t(ctrl >> 16), uint8_t(ctrl >> 8), uint8_t(ctrl) };
-  esphome::i2c::ErrorCode i2c_error = this->bus_->write(this->address_, header, sizeof(header), false /*stop*/);
+  // FIXME: Preferably this transaction would not assert a STOP condition on the I2C bus
+  // between the write and the read.  It used to work in ESP-IDF 5.3.2 but broke in
+  // ESP-IDF 5.4.2 which expects all transactions to end with a STOP.
+  // See https://github.com/esphome/esphome/issues/10346
+  esphome::i2c::ErrorCode i2c_error = this->bus_->write(this->address_, header, sizeof(header), true /*stop*/);
   if (i2c_error) {
     if (!silence_logs) {
       ESP_LOGE(TAG, "Failed to read register 0x%x: ERROR_I2C code %d", reg, i2c_error);
