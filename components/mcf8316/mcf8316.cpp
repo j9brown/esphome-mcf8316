@@ -111,7 +111,12 @@ void MCF8316Component::setup() {
   this->wake_();
   this->clear_fault();
 
+  // This is important so retry just in case.
   ErrorCode error = this->load_config_from_eeprom();
+  if (error) {
+    delay(10);
+    error = this->load_config_from_eeprom();
+  }
   if (error) {
     this->mark_failed("Failed to load config from EEPROM");
   }
