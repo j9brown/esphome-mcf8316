@@ -263,67 +263,7 @@ void MCF8316Component::check_algorithm_state_() {
     last_algorithm_state_ = algorithm_state;
     ESP_LOGD(TAG, "Algorithm state: %s", algorithm_state_name(algorithm_state));
   }
-
-  if (!this->mpet_in_progress_ || is_mpet_running(algorithm_state)) {
-    return; // wait for MPET to finish
-  }
-
-  this->mpet_in_progress_ = false;
-  ESP_LOGI(TAG, "Finished motor parameter extraction");
-  ESP_LOGI(TAG, "Results:");
-
-  RegisterValue<Register::ALGO_STATUS_MPET> algo_status_mpet;
-  if (!read(&algo_status_mpet)) {
-    ESP_LOGI(TAG, "  MPET_R_STATUS: %d", algo_status_mpet.get(MPET_R_STATUS));
-    ESP_LOGI(TAG, "  MPET_L_STATUS: %d", algo_status_mpet.get(MPET_L_STATUS));
-    ESP_LOGI(TAG, "  MPET_KE_STATUS: %d", algo_status_mpet.get(MPET_KE_STATUS));
-    ESP_LOGI(TAG, "  MPET_MECH_STATUS: %d", algo_status_mpet.get(MPET_MECH_STATUS));
-    ESP_LOGI(TAG, "  MPET_PWM_FREQ: %d", algo_status_mpet.get(MPET_PWM_FREQ));
-  }
-  RegisterValue<Register::MTR_PARAMS> mtr_params;
-  if (!read(&mtr_params)) {
-    ESP_LOGI(TAG, "  MOTOR_R: %d", mtr_params.get(MPET_MOTOR_R));
-    ESP_LOGI(TAG, "  MOTOR_L: %d", mtr_params.get(MPET_MOTOR_L));
-    ESP_LOGI(TAG, "  MOTOR_BEMF_CONST: %d", mtr_params.get(MPET_MOTOR_BEMF_CONST));
-  }
-  RegisterValue<Register::SPEED_PI> speed_pi;
-  if (!read(&speed_pi)) {
-    ESP_LOGI(TAG, "  SPEED_PI_LOOP_KI: %d", speed_pi.get(SPEED_PI_LOOP_KI));
-    ESP_LOGI(TAG, "  SPEED_PI_LOOP_KP: %d", speed_pi.get(SPEED_PI_LOOP_KP));
-  }
-#if false // irrelevant because we evaluated a speed mode control loop
-  RegisterValue<Register::CURRENT_PI> current_pi;
-  if (!read(&current_pi)) {
-    ESP_LOGI(TAG, "  CURRENT_PI_LOOP_KI: %d", current_pi.get(CURRENT_PI_LOOP_KI));
-    ESP_LOGI(TAG, "  CURRENT_PI_LOOP_KP: %d", current_pi.get(CURRENT_PI_LOOP_KP));
-  }
-#endif
-
-  if (this->mpet_may_write_shadow_) {
-    this->mpet_may_write_shadow_ = false;
-    if (!read_config()) {
-      ESP_LOGI(TAG, "MPET updated motor configuration shadow:");
-      ESP_LOGI(TAG, "  MOTOR_RES: %d", this->config_shadow_.get(MOTOR_RES));
-      ESP_LOGI(TAG, "  MOTOR_IND: %d", this->config_shadow_.get(MOTOR_IND));
-      ESP_LOGI(TAG, "  MOTOR_BEMF_CONST: %d", this->config_shadow_.get(MOTOR_BEMF_CONST));
-      ESP_LOGI(TAG, "  SPD_LOOP_KP: %d", this->config_shadow_.get(SPD_LOOP_KP));
-      ESP_LOGI(TAG, "  SPD_LOOP_KI: %d", this->config_shadow_.get(SPD_LOOP_KI));
-#if false // irrelevant because we evaluated a speed mode control loop
-      ESP_LOGI(TAG, "  CURR_LOOP_KP: %d", this->config_shadow_.get(CURR_LOOP_KP));
-      ESP_LOGI(TAG, "  CURR_LOOP_KI: %d", this->config_shadow_.get(CURR_LOOP_KI));
-#endif
-    }
-  }
-
-  // Clear MPET flags so the tool doesn't run again right away if a fault is cleared
-  RegisterValue<Register::ALGO_DEBUG2> algo_debug2;
-  algo_debug2.set(MPET_CMD, uint8_t(0u));
-  algo_debug2.set(MPET_R, false);
-  algo_debug2.set(MPET_L, false);
-  algo_debug2.set(MPET_KE, false);
-  algo_debug2.set(MPET_MECH, false);
-  algo_debug2.set(MPET_WRITE_SHADOW, false);
-  this->write(algo_debug2);
+  this->check_mpet_algorithm_state_(algorithm_state);
 }
 
 MCF8316Component::ErrorCode MCF8316Component::read_config() {
@@ -435,7 +375,73 @@ MCF8316Component::ErrorCode MCF8316Component::start_mpet(bool write_shadow) {
   }
   this->mpet_in_progress_ = true;
   this->mpet_may_write_shadow_ = write_shadow;
+  this->mpet_start_time_ = millis();
   return ErrorCode::NO_ERROR;
+}
+
+void MCF8316Component::check_mpet_algorithm_state_(AlgorithmState algorithm_state) {
+  constexpr uint32_t MPET_MINIMUM_RUNTIME_MS = 500;
+  if (!this->mpet_in_progress_ || is_mpet_running(algorithm_state) ||
+      millis() - this->mpet_start_time_ < MPET_MINIMUM_RUNTIME_MS) {
+    return; // wait for MPET to finish
+  }
+
+  this->mpet_in_progress_ = false;
+  ESP_LOGI(TAG, "Finished motor parameter extraction");
+  ESP_LOGI(TAG, "Results:");
+
+  RegisterValue<Register::ALGO_STATUS_MPET> algo_status_mpet;
+  if (!read(&algo_status_mpet)) {
+    ESP_LOGI(TAG, "  MPET_R_STATUS: %d", algo_status_mpet.get(MPET_R_STATUS));
+    ESP_LOGI(TAG, "  MPET_L_STATUS: %d", algo_status_mpet.get(MPET_L_STATUS));
+    ESP_LOGI(TAG, "  MPET_KE_STATUS: %d", algo_status_mpet.get(MPET_KE_STATUS));
+    ESP_LOGI(TAG, "  MPET_MECH_STATUS: %d", algo_status_mpet.get(MPET_MECH_STATUS));
+    ESP_LOGI(TAG, "  MPET_PWM_FREQ: %d", algo_status_mpet.get(MPET_PWM_FREQ));
+  }
+  RegisterValue<Register::MTR_PARAMS> mtr_params;
+  if (!read(&mtr_params)) {
+    ESP_LOGI(TAG, "  MOTOR_R: %d", mtr_params.get(MPET_MOTOR_R));
+    ESP_LOGI(TAG, "  MOTOR_L: %d", mtr_params.get(MPET_MOTOR_L));
+    ESP_LOGI(TAG, "  MOTOR_BEMF_CONST: %d", mtr_params.get(MPET_MOTOR_BEMF_CONST));
+  }
+  RegisterValue<Register::SPEED_PI> speed_pi;
+  if (!read(&speed_pi)) {
+    ESP_LOGI(TAG, "  SPEED_PI_LOOP_KI: %d", speed_pi.get(SPEED_PI_LOOP_KI));
+    ESP_LOGI(TAG, "  SPEED_PI_LOOP_KP: %d", speed_pi.get(SPEED_PI_LOOP_KP));
+  }
+#if false // irrelevant because we evaluated a speed mode control loop
+  RegisterValue<Register::CURRENT_PI> current_pi;
+  if (!read(&current_pi)) {
+    ESP_LOGI(TAG, "  CURRENT_PI_LOOP_KI: %d", current_pi.get(CURRENT_PI_LOOP_KI));
+    ESP_LOGI(TAG, "  CURRENT_PI_LOOP_KP: %d", current_pi.get(CURRENT_PI_LOOP_KP));
+  }
+#endif
+
+  if (this->mpet_may_write_shadow_) {
+    this->mpet_may_write_shadow_ = false;
+    if (!read_config()) {
+      ESP_LOGI(TAG, "Motor configuration shadow registers after MPET:");
+      ESP_LOGI(TAG, "  MOTOR_RES: %d", this->config_shadow_.get(MOTOR_RES));
+      ESP_LOGI(TAG, "  MOTOR_IND: %d", this->config_shadow_.get(MOTOR_IND));
+      ESP_LOGI(TAG, "  MOTOR_BEMF_CONST: %d", this->config_shadow_.get(MOTOR_BEMF_CONST));
+      ESP_LOGI(TAG, "  SPD_LOOP_KP: %d", this->config_shadow_.get(SPD_LOOP_KP));
+      ESP_LOGI(TAG, "  SPD_LOOP_KI: %d", this->config_shadow_.get(SPD_LOOP_KI));
+#if false // irrelevant because we evaluated a speed mode control loop
+      ESP_LOGI(TAG, "  CURR_LOOP_KP: %d", this->config_shadow_.get(CURR_LOOP_KP));
+      ESP_LOGI(TAG, "  CURR_LOOP_KI: %d", this->config_shadow_.get(CURR_LOOP_KI));
+#endif
+    }
+  }
+
+  // Clear MPET flags so the tool doesn't run again right away if a fault is cleared
+  RegisterValue<Register::ALGO_DEBUG2> algo_debug2;
+  algo_debug2.set(MPET_CMD, uint8_t(0u));
+  algo_debug2.set(MPET_R, false);
+  algo_debug2.set(MPET_L, false);
+  algo_debug2.set(MPET_KE, false);
+  algo_debug2.set(MPET_MECH, false);
+  algo_debug2.set(MPET_WRITE_SHADOW, false);
+  this->write(algo_debug2);
 }
 
 MCF8316Component::ErrorCode MCF8316Component::read_speed_feedback(float* out_speed_in_rotor_hz) {

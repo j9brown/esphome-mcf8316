@@ -171,6 +171,7 @@ class MCF8316Component : public Component {
   void check_fault_();
   void log_fault_();
   void check_algorithm_state_();
+  void check_mpet_algorithm_state_(AlgorithmState algorithm_state);
 
   void update_warning_();
 
@@ -196,6 +197,7 @@ class MCF8316Component : public Component {
   bool awake_{false};
   bool mpet_in_progress_{false};
   bool mpet_may_write_shadow_{false};
+  uint32_t mpet_start_time_{};
   AlgorithmState last_algorithm_state_{};
   uint8_t algorithm_state_failure_count_{};
   uint8_t tickle_failure_count_{};
