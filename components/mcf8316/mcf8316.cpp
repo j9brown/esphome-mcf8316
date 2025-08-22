@@ -73,16 +73,16 @@ Config MCF8316Component::make_default_config() const {
   Config config{};
   config.set(I2C_TARGET_ADDR, this->address_);
   config.set(SPEED_MODE, SpeedMode::DIGITAL_SPEED_CTRL); // set speed over I2C
-  config.set(INPUT_REFERENCE_MODE, uint8_t(0)); // input reference is speed percentage
+  config.set(INPUT_REFERENCE_MODE, InputReferenceMode::SPEED); // input reference is speed percentage
   config.set(BRAKE_INPUT, BrakeInput::OVERRIDE_OFF); // set brake over I2C
   config.set(DIR_INPUT, DirInput::OVERRIDE_CLOCKWISE); // set direction over I2C
-  config.set(DEV_MODE, uint8_t(1u)); // enable sleep when wake pin is low (if set to 0, will go into standby instead)
-  config.set(SLEEP_ENTRY_TIME, uint8_t(2)); // Sleep entry time: sleep when speed pin low for 20 ms
+  config.set(DEV_MODE, DeviceMode::SLEEP); // enable sleep when wake pin is low
+  config.set(SLEEP_ENTRY_TIME, SleepEntryTime::SLEEP_AFTER_20_MS); // sleep when speed pin low for this amount of time
   if (this->watchdog_) {
     config.set(EXT_WDT_EN, true); // enable watchdog timer
-    config.set(EXT_WDT_CONFIG, uint8_t(1u)); // 2 second timeout over I2C
-    config.set(EXT_WDT_INPUT_MODE, uint8_t(0u)); // watchdog tickle over I2C
-    config.set(EXT_WDT_FAULT_MODE, uint8_t(1u)); // latch in Hi-Z when watchdog fault occurs
+    config.set(EXT_WDT_CONFIG, WatchdogTimeout::TIMEOUT_I2C_2_S_GPIO_200_MS); // 2 second timeout over I2C
+    config.set(EXT_WDT_INPUT_MODE, WatchdogInputMode::I2C); // watchdog tickle over I2C
+    config.set(EXT_WDT_FAULT_MODE, WatchdogFaultMode::LATCH_HI_Z); // latch in Hi-Z when watchdog fault occurs
   } else {
     config.set(EXT_WDT_EN, false);
   }

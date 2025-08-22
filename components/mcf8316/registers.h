@@ -477,18 +477,42 @@ constexpr auto BUS_VOLT = Field<Register::DEVICE_CONFIG1, 0, 2, uint8_t>();
     x(SLEW_RATE_I2C_PINS) x(PULLUP_ENABLE) x(BUS_VOLT)
 
 // DEVICE_CONFIG2
+enum class SleepEntryTime : uint8_t {
+  SLEEP_AFTER_50_US = 0,
+  SLEEP_AFTER_200_US = 1,
+  SLEEP_AFTER_20_MS = 2,
+  SLEEP_AFTER_200_MS = 3,
+};
+enum class DeviceMode : uint8_t {
+  STANDBY = 0,
+  SLEEP = 1,
+};
+enum class WatchdogTimeout : uint8_t {
+  TIMEOUT_I2C_1_S_GPIO_100_MS = 0,
+  TIMEOUT_I2C_2_S_GPIO_200_MS = 1,
+  TIMEOUT_I2C_5_S_GPIO_500_MS = 2,
+  TIMEOUT_I2C_10_S_GPIO_1000_MS = 3,
+};
+enum class WatchdogInputMode : uint8_t {
+  I2C = 0,
+  GPIO = 1,
+};
+enum class WatchdogFaultMode : uint8_t {
+  REPORT_ONLY = 0,
+  LATCH_HI_Z = 1,
+};
 constexpr auto INPUT_MAXIMUM_FREQ = Field<Register::DEVICE_CONFIG2, 16, 15, uint16_t>();
-constexpr auto SLEEP_ENTRY_TIME = Field<Register::DEVICE_CONFIG2, 14, 2, uint8_t>();
+constexpr auto SLEEP_ENTRY_TIME = Field<Register::DEVICE_CONFIG2, 14, 2, SleepEntryTime>();
 constexpr auto DYNAMIC_CSA_GAIN_EN = Field<Register::DEVICE_CONFIG2, 13, 1, bool>();
 constexpr auto DYNAMIC_VOLTAGE_GAIN_EN = Field<Register::DEVICE_CONFIG2, 12, 1, bool>();
-constexpr auto DEV_MODE = Field<Register::DEVICE_CONFIG2, 11, 1, uint8_t>();
+constexpr auto DEV_MODE = Field<Register::DEVICE_CONFIG2, 11, 1, DeviceMode>();
 constexpr auto PWM_DITHER_DEPTH = Field<Register::DEVICE_CONFIG2, 9, 2, uint8_t>();
 constexpr auto EXT_CLK_EN = Field<Register::DEVICE_CONFIG2, 8, 1, bool>();
 constexpr auto EXT_CLK_CONFIG = Field<Register::DEVICE_CONFIG2, 5, 3, uint8_t>();
 constexpr auto EXT_WDT_EN = Field<Register::DEVICE_CONFIG2, 4, 1, bool>();
-constexpr auto EXT_WDT_CONFIG = Field<Register::DEVICE_CONFIG2, 2, 2, uint8_t>();
-constexpr auto EXT_WDT_INPUT_MODE = Field<Register::DEVICE_CONFIG2, 1, 1, uint8_t>();
-constexpr auto EXT_WDT_FAULT_MODE = Field<Register::DEVICE_CONFIG2, 0, 1, uint8_t>();
+constexpr auto EXT_WDT_CONFIG = Field<Register::DEVICE_CONFIG2, 2, 2, WatchdogTimeout>();
+constexpr auto EXT_WDT_INPUT_MODE = Field<Register::DEVICE_CONFIG2, 1, 1, WatchdogInputMode>();
+constexpr auto EXT_WDT_FAULT_MODE = Field<Register::DEVICE_CONFIG2, 0, 1, WatchdogFaultMode>();
 #define MCF8316_FOR_EACH_DEVICE_CONFIG2_FIELD(x) \
     x(INPUT_MAXIMUM_FREQ) x(SLEEP_ENTRY_TIME) x(DYNAMIC_CSA_GAIN_EN) x(DYNAMIC_VOLTAGE_GAIN_EN) \
     x(DEV_MODE) x(PWM_DITHER_DEPTH) x(EXT_CLK_EN) x(EXT_CLK_CONFIG) x(EXT_WDT_EN) \
@@ -500,6 +524,12 @@ enum class DirInput : uint8_t {
   OVERRIDE_CLOCKWISE = 1,
   OVERRIDE_COUNTER_CLOCKWISE = 2,
   DIR_PIN2 = 3, // same behavior as DIR_PIN
+};
+enum class InputReferenceMode : uint8_t {
+  SPEED = 0,
+  POWER = 1,
+  TORQUE = 2,
+  MODULATION_INDEX = 3,
 };
 constexpr auto SPREAD_SPECTRUM_MODULATION_DIS = Field<Register::PERI_CONFIG1, 30, 1, bool>();
 constexpr auto NO_MTR_FLT_CLOSEDLOOP_DIS = Field<Register::PERI_CONFIG1, 28, 1, bool>();
@@ -513,7 +543,7 @@ constexpr auto SPEED_LIMIT_ENABLE = Field<Register::PERI_CONFIG1, 17, 1, bool>()
 constexpr auto ACTIVE_BRAKE_SPEED_DELTA_LIMIT_ENTRY = Field<Register::PERI_CONFIG1, 13, 4, uint8_t>();
 constexpr auto ACTIVE_BRAKE_MOD_INDEX_LIMIT = Field<Register::PERI_CONFIG1, 10, 3, uint8_t>();
 constexpr auto SPEED_RANGE_SEL = Field<Register::PERI_CONFIG1, 9, 1, uint8_t>();
-constexpr auto INPUT_REFERENCE_MODE = Field<Register::PERI_CONFIG1, 7, 2, uint8_t>();
+constexpr auto INPUT_REFERENCE_MODE = Field<Register::PERI_CONFIG1, 7, 2, InputReferenceMode>();
 constexpr auto EEPROM_LOCK_MODE = Field<Register::PERI_CONFIG1, 5, 2, uint8_t>();
 #define MCF8316_FOR_EACH_PERI_CONFIG1_FIELD(x) \
     x(SPREAD_SPECTRUM_MODULATION_DIS) x(NO_MTR_FLT_CLOSEDLOOP_DIS) x(ABNORMAL_BEMF_PERSISTENT_TIME) \
