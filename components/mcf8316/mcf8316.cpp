@@ -118,7 +118,7 @@ void MCF8316Component::setup() {
     error = this->load_config_from_eeprom();
   }
   if (error) {
-    this->mark_failed("Failed to load config from EEPROM");
+    this->mark_failed("Failed to load config during setup");
   }
 }
 
@@ -134,14 +134,21 @@ void MCF8316Component::loop() {
 
 void MCF8316Component::wake_() {
   if (!this->awake_) {
+    ESP_LOGI(TAG, "Waking from sleep");
     this->awake_ = true;
     this->update_wake_state_for_pin_config_();
-    delay(5); // time to wake is 3 to 5 ms according to the datasheet
+    delay(8); // time to wake is 3 to 5 ms according to the datasheet, allow a small margin
+
+    ErrorCode error = this->read_config();
+    if (error) {
+      this->mark_failed("Failed to load config during wake-up");
+    }
   }
 }
 
 void MCF8316Component::sleep_() {
   if (this->awake_) {
+    ESP_LOGI(TAG, "Going to sleep");
     this->awake_ = false;
     this->update_wake_state_for_pin_config_();
   }

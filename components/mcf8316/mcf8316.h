@@ -59,7 +59,14 @@ class MCF8316Component : public Component {
   void clear_fault();
 
   bool is_awake() const { return this->awake_; }
+
+  // Wakes the device from sleep.
+  // Reloads `config_shadow` because the device reloads the configuration from EEPROM
+  // when it wakes up from sleep.
   void wake() { this->wake_(); }
+
+  // Asks the device to go to sleep after the configured `SLEEP_ENTRY_TIME` has expired.
+  // Going to sleep has the side-effect of stopping the motor.
   void sleep() { this->sleep_(); }
 
   // Returns a mostly zero-filled configuration with bits set for control over I2C.
