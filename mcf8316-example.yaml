@@ -33,7 +33,7 @@ web_server:
 # Import the MCF8316 component.
 external_components:
   # Import the component from Github.
-  # - source: github://j9brown/esphome-mcf8316@main
+  # - source: github://brown-studios/esphome-mcf8316@main
   #   components: [ mcf8316 ]
   # Import the component from a local directory.
   - source: components
